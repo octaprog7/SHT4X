@@ -23,6 +23,8 @@ if __name__ == '__main__':
     sen.soft_reset()
     time.sleep_ms(100)
     repeats = 3_000
+    # Измерение с порядковым номером, который будет делится без остатка на heater_on_period,
+    # будет проходить в включенным нагревателем, который встроен в датчик!
     heater_on_period = repeats // 30
     print(f"Sensor id: {sid}")
     #

@@ -17,7 +17,7 @@ class SHT4xSensirion(IDentifier, IBaseSensorEx):
     """Class for work with Sensirion SHT4x sensor"""
     cmd_get_id = 0x89
     cmd_soft_reset = 0x94
-    magic = -1 + 2 ** 16
+    _magic = 1.5259021896696422e-05     # 1/(-1 + 2 ** 16)
 
     def __init__(self, adapter: bus_service.BusAdapter, address=0x44, check_crc: bool = True):
         """Если check_crc в Истина, то каждый, принятый от датчика пакет данных, проверяется на правильность путем
@@ -132,8 +132,9 @@ class SHT4xSensirion(IDentifier, IBaseSensorEx):
             return
         _buf = self._read_answer()
         _t = self._connector.unpack("HBH", _buf)
-        t = 175.0 * _t[0] / SHT4xSensirion.magic - 45.0    # температура в градусах Цельсия!
-        rh = 125.0 * _t[2] / SHT4xSensirion.magic - 6.0    # относительная влажность в процентах!
+        _mag = SHT4xSensirion._magic
+        t = -45.0 + 175.0 * _t[0] * _mag    # температура в градусах Цельсия!
+        rh = -6.0 + 125.0 * _t[2] * _mag    # относительная влажность в процентах!
         return measured_values_sht4x(T=t, RH=rh)
 
     def is_single_shot_mode(self) -> bool:
