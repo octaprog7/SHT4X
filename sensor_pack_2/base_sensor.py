@@ -104,6 +104,15 @@ class DeviceEx(Device):
         byte_order = self._get_byteorder_as_str()[0]
         return self.adapter.write_register(self.address, reg_addr, value, bytes_count, byte_order)
 
+    def read_reg_16(self, address: int, signed: bool = False) -> int:
+        """Чтение регистра разрядностью 16 бит"""
+        _raw = self.read_reg(address, 2)
+        return self.unpack("h" if signed else "H", _raw)[0]
+
+    def write_reg_16(self, address: int, value: int):
+        """Запись регистра разрядностью 16 бит"""
+        self.write_reg(address, value, 2)
+
     def read(self, n_bytes: int) -> bytes:
         """Читает из устройства n_bytes байт. Добавил 25.01.2024"""
         return self.adapter.read(self.address, n_bytes)
@@ -188,10 +197,15 @@ class IPower:
         """
         raise NotImplemented
 
-#    def power_on(self, on: bool = True) -> int:
-#        """Полностью включает (on в Истина), либо полностью ВЫключает (on в Ложь)
-#        Возвращает текущий режим потребления устройства."""
-#        raise NotImplemented
+
+class IDentifier:
+    """Интерфейс идентификации"""
+
+    def get_id(self):
+        raise NotImplementedError
+
+    def soft_reset(self):
+        raise NotImplementedError
 
 
 class IBaseSensorEx:
@@ -206,13 +220,14 @@ class IBaseSensorEx:
         """Настраивает параметры датчика и запускает процесс измерения"""
         raise NotImplemented
 
-    def get_measurement_value(self):
-        """Возвращает измеренное датчиком значение(значения)"""
+    def get_measurement_value(self, value_index: int):
+        """Возвращает измеренное датчиком значение(значения) по его индексу/номеру."""
         raise NotImplemented
 
-#    def is_data_ready(self) -> bool:
-#        """Возвращает Истина, если данные доступны для считывания"""
-#        raise NotImplemented
+    def get_data_status(self):
+        """Возвращает состояние готовности данных для считывания?
+        Тип возвращаемого значения выбирайте сами!"""
+        raise NotImplemented
 
     def is_single_shot_mode(self) -> bool:
         """Возвращает Истина, когда датчик находится в режиме однократных измерений,

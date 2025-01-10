@@ -1,15 +1,19 @@
 """SHT4x Sensirion module"""
 import time
+from collections import namedtuple
 
 from sensor_pack_2 import bus_service
-from sensor_pack_2.base_sensor import BaseSensorEx, IBaseSensorEx, check_value
+from sensor_pack_2.base_sensor import IDentifier, IBaseSensorEx, DeviceEx, check_value
 from sensor_pack_2.crc_mod import crc8
 
 def _calc_crc(sequence) -> int:
     """Обертка для короткого вызова."""
     return crc8(sequence, polynomial=0x31, init_value=0xFF)
 
-class SHT4xSensirion(BaseSensorEx, IBaseSensorEx):
+serial_number_sht4x = namedtuple("serial_number_sht4x", "word_0 word_1")
+measured_values_sht4x = namedtuple("measured_values_sht4x", "T RH")
+
+class SHT4xSensirion(IDentifier, IBaseSensorEx):
     """Class for work with Sensirion SHT4x sensor"""
     cmd_get_id = 0x89
     cmd_soft_reset = 0x94
@@ -19,7 +23,7 @@ class SHT4xSensirion(BaseSensorEx, IBaseSensorEx):
         """Если check_crc в Истина, то каждый, принятый от датчика пакет данных, проверяется на правильность путем
         расчета контрольной суммы."""
         check_value(address, range(0x44, 0x47), f"Неверный адрес устройства: {address}")
-        super().__init__(adapter, address, True)
+        self._connector = DeviceEx(adapter=adapter, address=address, big_byte_order=True)
         self._check_crc = check_crc
         self._last_cmd_code = None
         #
@@ -30,13 +34,6 @@ class SHT4xSensirion(BaseSensorEx, IBaseSensorEx):
         self._buf_1 = bytearray(1)
         self._buf_6 = bytearray(6)
 
-    #@staticmethod
-    #def get_answer_len(command_code: int) -> int:
-    #    """Возвращает количество байт в ответе датчика"""
-    #    if SHT4xSensirion.cmd_soft_reset == command_code:
-    #        return 0
-    #    return 6
-
     def get_last_cmd_code(self) -> int:
         """Возвращает последний код команды, переданный по шине данных в датчик"""
         return self._last_cmd_code
@@ -46,7 +43,7 @@ class SHT4xSensirion(BaseSensorEx, IBaseSensorEx):
         check_value(command_code, range(0x100), f"Неверный код команды: {command_code}")
         _local = self._buf_1
         _local[0] = command_code
-        self.write(_local)
+        self._connector.write(_local)
         self._last_cmd_code = command_code
 
     def _read_answer(self) -> [bytes, None]:
@@ -57,7 +54,7 @@ class SHT4xSensirion(BaseSensorEx, IBaseSensorEx):
         if SHT4xSensirion.cmd_soft_reset == _cmd:
             return None
         _buf = self._buf_6
-        self.read_to_buf(_buf)
+        self._connector.read_to_buf(_buf)
         # ответ считан
         if self._check_crc:
             crc_from_buf = [_buf[i] for i in (2, 5)]  # список со значениями CRC
@@ -66,15 +63,16 @@ class SHT4xSensirion(BaseSensorEx, IBaseSensorEx):
                 raise ValueError(f"Неверная CRC! Вычислено: {calculated_crc}. Из буфера: {crc_from_buf};")
         return _buf
 
-    def get_id(self) -> tuple[int, int]:
+    def get_id(self) -> serial_number_sht4x:
         _cmd = SHT4xSensirion.cmd_get_id
         self._send_command(_cmd)
         # этот 'чудо-датчик' не может сразу отдать прошитый в нем номер! Приходится вызывать sleep_us!
-        time.sleep_us(110)
+        # если у вас этот метод вызывает исключение, попробуйте увеличить аргумент sleep_us!
+        time.sleep_us(250)
         _buf = self._read_answer()
-        t = self.unpack("HBH", _buf)
+        t = self._connector.unpack("HBH", _buf)
         # отбрасываю CRC
-        return t[0], t[2]
+        return serial_number_sht4x(word_0=t[0], word_1=t[2])
 
     def soft_reset(self):
         """Программный сброс датчика. После сброса датчик переходит в состояние простоя, idle state!"""
@@ -127,16 +125,16 @@ class SHT4xSensirion(BaseSensorEx, IBaseSensorEx):
         self._value = value
         self._long_pulse = long_pulse
 
-    def get_measurement_value(self) -> [None, tuple[float, float]]:
+    def get_measurement_value(self) -> [None, measured_values_sht4x]:
         """Возвращает измеренное датчиком значение/значения"""
         _cmd = self.get_last_cmd_code()
         if SHT4xSensirion.cmd_get_id == _cmd:
             return
         _buf = self._read_answer()
-        _t = self.unpack("HBH", _buf)
+        _t = self._connector.unpack("HBH", _buf)
         t = 175.0 * _t[0] / SHT4xSensirion.magic - 45.0    # температура в градусах Цельсия!
         rh = 125.0 * _t[2] / SHT4xSensirion.magic - 6.0    # относительная влажность в процентах!
-        return t, rh
+        return measured_values_sht4x(T=t, RH=rh)
 
     def is_single_shot_mode(self) -> bool:
         """Возвращает Истина, когда датчик находится в режиме однократных измерений,

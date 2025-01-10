@@ -177,19 +177,19 @@ class SpiAdapter(BusAdapter):
         """Read a number of bytes specified by n_bytes while continuously writing the single byte given by write.
         Returns a bytes object with the data that was read."""
         try:
-            device_addr.low()
+            device_addr.value(0)
             return self.bus.read(n_bytes)
         finally:
-            device_addr.high()
+            device_addr.value(1)
 
     def read_to_buf(self, device_addr: Pin, buf) -> bytes:
         """Читает из устройства на шине с адресом device_addr в буфер buf количество байт, равное длине(len) буфера!"""
         try:
-            device_addr.low()
+            device_addr.value(0)
             self.bus.readinto(buf, 0x00)
             return buf
         finally:
-            device_addr.high()
+            device_addr.value(1)
 
     def write(self, device_addr: Pin, buf: bytes):
         """Параметр data_packet представляет собой признак того, что посылка является данными (high) или командой (low).
@@ -198,15 +198,21 @@ class SpiAdapter(BusAdapter):
         The data_packet parameter is an indication that the package is data (high) or command (low).
          For example, this is necessary when exchanging ILI9481."""
         try:
-            device_addr.low()   # chip select
+            device_addr.value(0)   # chip select
             if self.use_data_mode_pin and self.data_mode_pin:
                 self.data_mode_pin.value(self.data_packet)
             return self.bus.write(buf)
         finally:
-            device_addr.high()
+            device_addr.value(1)
 
     def write_and_read(self, device_addr: Pin, wr_buf: bytes, rd_buf: bytes):
-        """Параметр data_packet представляет собой признак того, что посылка является данными (high) или командой (low).
+        """Одновременная запись и чтение байт.
+        Записывает байты из write_buf и читает в read_buf. Буферы могут быть одинаковыми или разными,
+        но оба буфера должны иметь одинаковую длину?
+        Возвращает None.
+        Примечание: на WiPy эта функция возвращает количество записанных байтов.
+
+        Параметр data_packet представляет собой признак того, что посылка является данными (high) или командой (low).
         Например это необходимо при обмене ILI9481.
         Расширение возможностей базового класса.
         Write the bytes from write_buf while reading into read_buf. The buffers can be the same or different,
@@ -214,29 +220,29 @@ class SpiAdapter(BusAdapter):
         The data_packet parameter is an indication that the package is data (high) or command (low).
          For example, this is necessary when exchanging ILI9481."""
         try:
-            device_addr.low()   # chip select
+            device_addr.value(0)   # chip select
             if self.use_data_mode_pin and self.data_mode_pin:
                 self.data_mode_pin.value(self.data_packet)
             return self.bus.write_readinto(wr_buf, rd_buf)
         finally:
-            device_addr.high()
+            device_addr.value(1)
 
-    def read_buf_from_memory(self, device_addr: Pin, mem_addr, buf):
+    def read_buf_from_memory(self, device_addr: Pin, mem_addr, buf, address_size: int):
         """Читает из устройства с адресом device_addr в буфер buf, начиная с адреса в устройстве mem_addr.
         Количество считываемых байт определяется длинной буфера buf."""
         try:
-            device_addr.low()  # chip select
+            device_addr.value(0)  # chip select
             # пока нет реализации!!!
             raise NotImplementedError
         finally:
-            device_addr.high()
+            device_addr.value(1)
 
     def write_buf_to_memory(self, device_addr: Pin, mem_addr, buf):
         try:
-            device_addr.low()  # chip select
+            device_addr.value(0)  # chip select
             # подготовка буфера к пересылке
             self._call_prepare(buf)
             # пока нет реализации!!!
             raise NotImplementedError
         finally:
-            device_addr.high()
+            device_addr.value(1)

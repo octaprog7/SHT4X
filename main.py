@@ -20,10 +20,11 @@ if __name__ == '__main__':
     # sensor
     sen = SHT4xSensirion(adaptor, address=0x44, check_crc=True)
     sid = sen.get_id()
-    # sen.soft_reset()
-    # time.sleep_ms(100)
+    sen.soft_reset()
+    time.sleep_ms(100)
     repeats = 3_000
-    print(f"Sensor id: 0x{sid[0]:x}\t0x{sid[1]:x}")
+    heater_on_period = repeats // 30
+    print(f"Sensor id: {sid}")
     #
     print("работа с встроенным в датчик нагревателем")
     sen.start_measurement(with_heater=True, value=2, long_pulse=False)
@@ -31,13 +32,14 @@ if __name__ == '__main__':
     time.sleep_us(wt)
     results = sen.get_measurement_value()
     print("Результаты после прогрева!")
-    print(f"T: {results[0]}; RH: {results[1]}")
+    print(f"{results}")
     #
-    print("Результаты без прогрева!")
-    for _ in range(repeats):
-        sen.start_measurement(with_heater=False, value=0, long_pulse=False)
+    print("Результаты c периодическим прогревом!")
+    for cnt, _ in enumerate(range(repeats)):
+        w_heater = 0 == cnt % heater_on_period
+        sen.start_measurement(with_heater=w_heater, value=0, long_pulse=False)
         wt = sen.get_conversion_cycle_time()
         time.sleep_us(wt)
         results = sen.get_measurement_value()
-        print(f"T: {results[0]}; RH: {results[1]}")
+        print(f"{results}")
         time.sleep_ms(100)	# чтобы не зависла IDE
