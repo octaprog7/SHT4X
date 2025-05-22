@@ -1,0 +1,11 @@
+{
+  "urls": [
+    ["sht4xmod.py", "github:octaprog7/SHT4X/sht4xmod.py"],
+    ["sensor_pack_2/__init__.py", "github:octaprog7/SHT4X/sensor_pack_2/__init__.py"],
+    ["sensor_pack_2/base_sensor.py", "github:octaprog7/SHT4X/sensor_pack_2/base_sensor.py"],
+    ["sensor_pack_2/bus_service.py", "github:octaprog7/SHT4X/sensor_pack_2/bus_service.py"],
+    ["sensor_pack_2/crc_mod.py", "github:octaprog7/SHT4X/sensor_pack_2/crc_mod.py"]
+  ],
+  "version": "1.0.0",
+  "deps": []
+}
