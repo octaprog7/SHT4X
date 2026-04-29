@@ -1,23 +1,26 @@
 """SHT4x Sensirion module"""
 import time
+from micropython import const
 from collections import namedtuple
-
 from sensor_pack_2 import bus_service
 from sensor_pack_2.base_sensor import IDentifier, IBaseSensorEx, DeviceEx, check_value
 from sensor_pack_2.crc_mod import crc8
+
 
 def _calc_crc(sequence) -> int:
     """Обертка для короткого вызова."""
     return crc8(sequence, polynomial=0x31, init_value=0xFF)
 
+
 serial_number_sht4x = namedtuple("serial_number_sht4x", "word_0 word_1")
 measured_values_sht4x = namedtuple("measured_values_sht4x", "T RH")
 
+
 class SHT4xSensirion(IDentifier, IBaseSensorEx):
     """Class for work with Sensirion SHT4x sensor"""
-    cmd_get_id = 0x89
-    cmd_soft_reset = 0x94
-    _magic = 1.5259021896696422e-05     # 1/(-1 + 2 ** 16)
+    cmd_get_id = const(0x89)
+    cmd_soft_reset = const(0x94)
+    _magic = 1.5259021896696422e-05  # 1/(-1 + 2 ** 16)
 
     def __init__(self, adapter: bus_service.BusAdapter, address=0x44, check_crc: bool = True):
         """Если check_crc в Истина, то каждый, принятый от датчика пакет данных, проверяется на правильность путем
@@ -46,7 +49,7 @@ class SHT4xSensirion(IDentifier, IBaseSensorEx):
         self._connector.write(_local)
         self._last_cmd_code = command_code
 
-    def _read_answer(self) -> [bytes, None]:
+    def _read_answer(self) -> bytes | None:
         """Читает ответ на команду, переданную методом _send_command.
         Возвращает ссылку на буфер с принятыми данными.
         Проверяет CRC"""
@@ -81,12 +84,12 @@ class SHT4xSensirion(IDentifier, IBaseSensorEx):
     def get_conversion_cycle_time(self) -> int:
         """Возвращает время в мкс(!) преобразования сигнала в цифровой код и готовности его для чтения по шине!
         Для текущих настроек датчика. При изменении настроек следует заново вызвать этот метод!"""
-        if not self._with_heater:   # работа без нагрева!
+        if not self._with_heater:  # работа без нагрева!
             _val = self._value  # 0..2; 0 - низкая, 1 - средняя, 2 - высокая повторяемость/точность
             _ms = 1_600, 4_500, 8_300
             return _ms[_val]
 
-        if self._long_pulse:    # работа с нагревом!
+        if self._long_pulse:  # работа с нагревом!
             return 1_100_000
         # короткий импульс нагрева
         return 110_000
@@ -125,16 +128,16 @@ class SHT4xSensirion(IDentifier, IBaseSensorEx):
         self._value = value
         self._long_pulse = long_pulse
 
-    def get_measurement_value(self) -> [None, measured_values_sht4x]:
+    def get_measurement_value(self, value_index: int = 0) -> None | measured_values_sht4x:
         """Возвращает измеренное датчиком значение/значения"""
         _cmd = self.get_last_cmd_code()
         if SHT4xSensirion.cmd_get_id == _cmd:
-            return
+            return None
         _buf = self._read_answer()
         _t = self._connector.unpack("HBH", _buf)
         _mag = SHT4xSensirion._magic
-        t = -45.0 + 175.0 * _t[0] * _mag    # температура в градусах Цельсия!
-        rh = -6.0 + 125.0 * _t[2] * _mag    # относительная влажность в процентах!
+        t = -45.0 + 175.0 * _t[0] * _mag  # температура в градусах Цельсия!
+        rh = -6.0 + 125.0 * _t[2] * _mag  # относительная влажность в процентах!
         return measured_values_sht4x(T=t, RH=rh)
 
     def is_single_shot_mode(self) -> bool:
